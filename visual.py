@@ -9,10 +9,10 @@ class CommunicationVisualizer(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("UDP Communication Visualizer")
-        self.geometry("800x400")
+        self.geometry("800x700")
 
         # Create a Canvas widget
-        self.canvas = Canvas(self, width=800, height=400)
+        self.canvas = Canvas(self, width=800, height=700)
         self.canvas.pack()
 
         # Draw labels for Host and Client
@@ -20,26 +20,46 @@ class CommunicationVisualizer(tk.Tk):
         self.canvas.create_text(600, 30, text="Client (Computer)", font=("Arial", 16))
 
         # Draw vertical lines to represent Host and Client
-        self.canvas.create_line(200, 50, 200, 350, arrow=tk.LAST)
-        self.canvas.create_line(600, 50, 600, 350, arrow=tk.LAST)
+        self.canvas.create_line(200, 50, 200, 650, arrow=tk.LAST)
+        self.canvas.create_line(600, 50, 600, 650, arrow=tk.LAST)
 
         self.next_event_y = 60
 
     def add_event(self, source, destination, seq, ack, length, status="normal"):
-        colors = {"normal": "green", "lost": "red", "corrupted": "orange"}
+        self.after(0, self._thread_safe_add_event, source, destination, seq, ack, length, status)
+
+    def _thread_safe_add_event(self, source, destination, seq, ack, length, status):
+        colors = {"normal": "green", "lost": "red", "timeout": "red", "corrupted": "orange", "duplicate": "yellow"}
         color = colors.get(status, "black")
 
-        x0, y0, x1, y1 = (600, self.next_event_y, 200, self.next_event_y) if source == "client" else (200, self.next_event_y, 600, self.next_event_y)
-        self.canvas.create_line(x0, y0, x1, y1, arrow=tk.LAST, fill=color)
-        self.canvas.create_text((x0 + x1) / 2, y0 + 10, text=f"Seq: {seq}, Ack: {ack}, Length: {length}", fill=color)
+        x0, y0, x1, y1 = (600, self.next_event_y, 200, self.next_event_y) if source == "client" else (
+        200, self.next_event_y, 600, self.next_event_y)
+        if status == "lost":
+            mid_x = (x0 + x1) / 2
+            mid_y = y0
+            self.canvas.create_line(x0, y0, mid_x, mid_y, fill=color)
+            self._draw_red_cross(mid_x, mid_y)
+            self.canvas.create_text((x0 + x1) / 2, y0 - 10, text=f"Seq: {seq}, Ack: {ack}, Length: {length}",
+                                    fill=color)
 
-        self.next_event_y += 40
-        if self.next_event_y > 350:
-            self.next_event_y = 60
+        elif status == "timeout":
+            self._draw_vertical_line(x0, y0, color)
+            self.canvas.create_text(x0, y0 + 20, text="Time out", fill=color)
+        else:
+            self.canvas.create_line(x0, y0, x1, y1, arrow=tk.LAST, fill=color)
+            self.canvas.create_text((x0 + x1) / 2, y0 - 10, text=f"Seq: {seq}, Ack: {ack}, Length: {length}",
+                                    fill=color)
+
+        self.next_event_y += 30
+        # if self.next_event_y > 600:
+        #     self.next_event_y = 60
+
     def _draw_red_cross(self, x, y):
         cross_size = 10
         self.canvas.create_line(x - cross_size, y - cross_size, x + cross_size, y + cross_size, fill="red", width=2)
         self.canvas.create_line(x + cross_size, y - cross_size, x - cross_size, y + cross_size, fill="red", width=2)
+    def _draw_vertical_line(self, x, y,color):
+        self.canvas.create_line(x, y - 15, x, y + 15, fill=color, width=2)
 def run_client(visualizer):
     udp_client.udp_client('auto',app)
 
