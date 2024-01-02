@@ -61,7 +61,7 @@ def udp_client(mode):
 
         finally:
             client_socket.settimeout(None)
-        if seq in retries and retries[seq] >= 3:
+        if seq in retries and retries[seq] >= 10:
             print(f"{Fore.RED}Packet {seq} is assumed lost after 3 attempts. {Style.RESET_ALL}")
     client_socket.close()
 
