@@ -2,10 +2,12 @@ import socket
 import random
 import json
 from time import sleep
+from colorama import init as colorama_init
+from colorama import Fore
+from colorama import Style
+from shared import delayRandomTime, mode
 
-from shared import delayRandomTime
-
-
+colorama_init()
 def process_server_message(data, mode):
     message = json.loads(data.decode())
     seq = message['seq']
@@ -19,7 +21,7 @@ def process_server_message(data, mode):
     new_seq = ack  # New SEQ is the received ACK
     new_ack = seq + length  # New ACK is the received SEQ plus length
     return json.dumps({'seq': new_seq, 'ack': new_ack, 'length': length}).encode()
-def udp_server(mode='auto'):
+def udp_server(mode):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_address = 'localhost'
     server_port = 12345
@@ -32,13 +34,19 @@ def udp_server(mode='auto'):
     while True:
         server_socket.settimeout(timeout)
         data, address = server_socket.recvfrom(4096)
+        print(f"{Fore.BLUE}Received: {data.decode()}")
         response = process_server_message(data, mode)
-        if response:
+        try:
+            if response:
+                delayRandomTime()
+                server_socket.sendto(response, address)
+                print(f"{Fore.GREEN} {response} package sent to {address}")
+            else:
+                print(f"{Fore.RED} Simulating lost/corrupted packet.")
+        except socket.timeout:
+            print(f"{Fore.RED} Server Timeout, resending: {response.decode()}")
             delayRandomTime()
             server_socket.sendto(response, address)
-            print(f"{response} package sent to {address}")
-        else:
-            print("Simulating lost/corrupted packet.")
+            print(f'{Fore.GREEN} Server sent {response} to client')
 
-
-udp_server(mode='auto')
+udp_server(mode=mode)
