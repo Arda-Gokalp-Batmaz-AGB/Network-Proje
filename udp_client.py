@@ -28,6 +28,8 @@ def udp_client(mode):
     seq = 1
     ack = 1
     length = 10  # Example length
+    ack_received = set()  # Track received acknowledgments
+    retries = {}  # Track retries for each packet
     message = json.dumps({'seq': seq, 'ack': ack, 'length': length}).encode()
     for i in range(0,max_num_packets):
         try:
@@ -38,18 +40,29 @@ def udp_client(mode):
                 try:
                     client_socket.settimeout(timeout)
                     data, server = client_socket.recvfrom(4096)
-                    print(f"{Fore.BLUE}Received: {data.decode()}")
-                    message = process_client_message(data = data, mode = mode)
-                    break
+                    response = json.loads(data.decode())
+                    if response['ack'] in ack_received:
+                        print(f"{Fore.YELLOW}Duplicate ACK detected for SEQ {response['seq']} {Style.RESET_ALL}")
+                    else:
+                        ack_received.add(response['ack'])
+                        print(f"{Fore.BLUE}Received: {data.decode()}")
+                        message = process_client_message(data = data, mode = mode)
+                        break
                 except socket.timeout:
                     print(f"{Fore.RED}Timeout, resending: {message.decode()}")
+                    seq = json.loads(message.decode())['seq']
+                    if seq in retries:
+                        retries[seq] += 1
+                    else:
+                        retries[seq] = 0
                     delayRandomTime()
                     client_socket.sendto(message, (server_address, server_port))
                     print(f'{Fore.GREEN}Client sent {message} to server')
 
         finally:
             client_socket.settimeout(None)
-
+        if seq in retries and retries[seq] >= 3:
+            print(f"{Fore.RED}Packet {seq} is assumed lost after 3 attempts. {Style.RESET_ALL}")
     client_socket.close()
 
 
