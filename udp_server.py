@@ -18,7 +18,11 @@ def process_server_message(data, mode):
     if mode == 'auto' and random.choice([True, False]):
         return None
 
-    new_seq = ack  # New SEQ is the received ACK
+    # In automatic mode, randomly decide ğif the packet is duplicated
+    if mode == 'auto' and random.choice([True, False]):
+        return json.dumps({'seq': seq, 'ack': ack, 'length': length}).encode()
+
+    new_seq = ack  # New SEQ is the seq ACK
     new_ack = seq + length  # New ACK is the received SEQ plus length
     return json.dumps({'seq': new_seq, 'ack': new_ack, 'length': length}).encode()
 def udp_server(mode):
@@ -26,8 +30,7 @@ def udp_server(mode):
     server_address = 'localhost'
     server_port = 12345
     server_socket.bind((server_address, server_port))
-    timeout = 15  # seconds
-
+    timeout = 65  # seconds
 
     print(f"UDP server in {mode} mode up and listening at {server_address} on port {server_port}")
 
