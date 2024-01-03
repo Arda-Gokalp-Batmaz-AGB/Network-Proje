@@ -34,7 +34,7 @@ def process_client_message(data, mode):
         return process_client_manual(seq, ack, length)
 
 
-def udp_client(mode,app):
+def udp_client(mode,app = None):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_address = 'localhost'
     server_port = 12345
@@ -58,7 +58,8 @@ def udp_client(mode,app):
             client_socket.sendto(message, (server_address, server_port))
 
             print(f'{Fore.GREEN}Client sent {message} to server {Style.RESET_ALL}')
-            app.add_event("client", "host", json.loads(message)['seq'], json.loads(message)['ack'],
+            if (app is not None):
+                app.add_event("client", "host", json.loads(message)['seq'], json.loads(message)['ack'],
                           json.loads(message)['length'], "normal")
             while True:
                 try:
@@ -74,7 +75,8 @@ def udp_client(mode,app):
                         break
                 except socket.timeout:
                     print(f"{Fore.RED}Timeout, resending: {message.decode()}")
-                    app.add_event("client", "host", 0, 0, 0, "timeout")
+                    if (app is not None):
+                        app.add_event("client", "host", 0, 0, 0, "timeout")
                     seq = json.loads(message.decode())['seq']
                     if seq in retries:
                         retries[seq] += 1
@@ -83,7 +85,8 @@ def udp_client(mode,app):
                     delayRandomTime()
                     client_socket.sendto(message, (server_address, server_port))
                     print(f'{Fore.GREEN}Client sent {message} to server')
-                    app.add_event("client", "host", json.loads(message)['seq'] ,json.loads(message)['ack'], json.loads(message)['length'], "normal")
+                    if (app is not None):
+                        app.add_event("client", "host", json.loads(message)['seq'] ,json.loads(message)['ack'], json.loads(message)['length'], "normal")
 
         finally:
             client_socket.settimeout(None)
@@ -92,4 +95,4 @@ def udp_client(mode,app):
     client_socket.close()
 
 
-#udp_client(mode=mode)
+udp_client(mode=mode)

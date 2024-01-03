@@ -21,11 +21,11 @@ def process_server_message(data, mode):
     length = message['length']
 
     # In automatic mode, randomly decide if the packet is lost/corrupted
-    if mode == 'auto' and random.choice([True, False]):
+    if mode == 'auto' and random.choice([True, False,False,False,False]):
         return None
 
-    # In automatic mode, randomly decide ğif the packet is duplicated
-    if mode == 'auto' and random.choice([True, False]):
+    # In automatic mode, randomly decide if the packet is duplicated
+    if mode == 'auto' and random.choice([True, False,False,False,False]):
         return json.dumps({'seq': seq, 'ack': ack, 'length': length}).encode()
 
     # if ack of server is not equal to client's seq package corrupts
@@ -39,7 +39,7 @@ def process_server_message(data, mode):
     globals()['last_seq'] = new_seq
 
     return json.dumps({'seq': new_seq, 'ack': new_ack, 'length': length}).encode()
-def udp_server(mode,app):
+def udp_server(mode,app = None):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_address = 'localhost'
     server_port = 12345
@@ -58,18 +58,22 @@ def udp_server(mode,app):
                 delayRandomTime()
                 server_socket.sendto(response, address)
                 print(f"{Fore.GREEN} {response} package sent to {address}")
-                app.add_event("host", "client", json.loads(response)['seq'] ,json.loads(response)['ack'], json.loads(response)['length'], "normal")
+                if(app is not None):
+                    app.add_event("host", "client", json.loads(response)['seq'] ,json.loads(response)['ack'], json.loads(response)['length'], "normal")
 
             else:
                 print(f"{Fore.RED} Simulating lost/corrupted packet.")
-                app.add_event("host", "client", 0 ,0, 0, "lost")
+                if (app is not None):
+                    app.add_event("host", "client", 0 ,0, 0, "lost")
         except socket.timeout:
             print(f"{Fore.RED} Server Timeout, resending: {response.decode()}")
-            app.add_event("host", "client", 0, 0, 0, "timeout")
+            if (app is not None):
+                app.add_event("host", "client", 0, 0, 0, "timeout")
             delayRandomTime()
             server_socket.sendto(response, address)
             print(f'{Fore.GREEN} Server sent {response} to client')
-            app.add_event("host", "client", json.loads(response)['seq'] ,json.loads(response)['ack'], json.loads(response)['length'], "normal")
+            if (app is not None):
+                app.add_event("host", "client", json.loads(response)['seq'] ,json.loads(response)['ack'], json.loads(response)['length'], "normal")
 
 
-#udp_server(mode=mode)
+udp_server(mode=mode)
