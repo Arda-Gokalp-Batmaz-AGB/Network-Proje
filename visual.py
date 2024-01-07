@@ -61,10 +61,10 @@ class CommunicationVisualizer(tk.Tk):
     def _draw_vertical_line(self, x, y,color):
         self.canvas.create_line(x, y - 15, x, y + 15, fill=color, width=2)
 def run_client(visualizer):
-    udp_client.udp_client('auto',app)
+    udp_client.udp_client('auto',visualizer)
 
 def run_server(visualizer):
-  udp_server.udp_server('auto',app)
+  udp_server.udp_server('auto',visualizer)
 if __name__ == "__main__":
     app = CommunicationVisualizer()
 
