@@ -1,39 +1,36 @@
 import socket
+import json
 import random
-from colorama import init as colorama_init, Fore, Style
 import time
+from colorama import init as colorama_init, Fore, Style
 
 colorama_init()
 
-def process_server_message(data, packet_history):
-    # Randomly simulate a timeout (no response)
-    if random.choice([True, False]):  # 50% chance to simulate timeout
-        return None
+# Global variables to track the last ACK and SEQ
+last_ack = -1
+last_seq = -1
 
-    message = data.decode()
-    seq, ack = map(int, message.split(','))
+def delayRandomTime():
+    time.sleep(random.randint(0, 4))
 
-    packet_key = f"{seq},{ack}"
+def process_server_message(data, mode):
+    global last_ack, last_seq
+    message = json.loads(data.decode())
+    seq = message['seq']
+    ack = message['ack']
+    length = message['length']
 
-    # Check for duplicates
-    if packet_key in packet_history:
-        return "error-duplicate".encode()
+    # Check if the packet is a duplicate in manual mode
+    if mode == 'manual' and seq == last_ack:
+        return json.dumps({'seq': last_seq, 'ack': last_ack, 'length': length}).encode()
 
-    # Assuming length of 10 for simplicity
-    length = 10
+    # Process normally and update last ACK and SEQ
     new_seq = ack
     new_ack = seq + length
+    last_ack = new_ack
+    last_seq = new_seq
 
-    # Check for incorrect values
-    if packet_history:
-        last_seq, last_ack = packet_history[-1]
-        expected_next_seq = last_ack
-        expected_next_ack = last_seq + length
-        if seq != expected_next_seq or ack != expected_next_ack:
-            return f"error-wrong_value;expected_seq:{expected_next_seq},received_seq:{seq};expected_ack:{expected_next_ack},received_ack:{ack}".encode()
-
-    packet_history.append((new_seq, new_ack))
-    return f"{new_seq},{new_ack}".encode()
+    return json.dumps({'seq': new_seq, 'ack': new_ack, 'length': length}).encode()
 
 def udp_server(mode):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -42,24 +39,28 @@ def udp_server(mode):
     server_socket.bind((server_address, server_port))
     timeout = 33  # seconds
 
-    packet_history = []
-
-    print(f"UDP server {mode} modunda ve {server_address} adresinde {server_port} portunda dinliyor")
+    print(f"UDP server in {mode} mode up and listening at {server_address} on port {server_port}")
 
     while True:
         try:
             server_socket.settimeout(timeout)
             data, address = server_socket.recvfrom(4096)
-            print(f"{Fore.BLUE}Alınan veri: {data.decode()}")
+            print(f"{Fore.BLUE}Received: {data.decode()}")
 
-            response = process_server_message(data, packet_history)
+            response = process_server_message(data, mode)
             if response:
+                delayRandomTime()
                 server_socket.sendto(response, address)
-                print(f"{Fore.GREEN}Cevap gönderildi: {response.decode()}{Style.RESET_ALL}")
+                print(f"{Fore.GREEN}Response {response.decode()} sent to {address}{Style.RESET_ALL}")
+            else:
+                print(f"{Fore.RED}Simulating lost/corrupted packet.")
 
         except socket.timeout:
-            print(f"{Fore.RED}Server zaman aşımına uğradı, geçerli bir mesaj bekliyor.{Style.RESET_ALL}")
+            print(f"{Fore.RED}Server Timeout, resending: {response.decode()}")
+            delayRandomTime()
+            server_socket.sendto(response, address)
+            print(f'{Fore.GREEN}Server sent {response} to client')
 
 if __name__ == "__main__":
-    mode = input("Mod girin (auto/manual): ")
+    mode = input("Enter mode (auto/manual): ")
     udp_server(mode)

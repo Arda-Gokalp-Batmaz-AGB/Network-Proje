@@ -1,8 +1,23 @@
 import socket
-import random
+import json
 from colorama import init as colorama_init, Fore, Style
+import random
+import time
 
 colorama_init()
+
+def delayRandomTime():
+    time.sleep(random.randint(0, 4))
+
+def process_client_auto(seq, ack, length):
+    new_seq = ack
+    new_ack = seq + length
+    return json.dumps({'seq': new_seq, 'ack': new_ack, 'length': length}).encode()
+
+def process_client_manual(seq, ack, length):
+    new_seq = seq
+    new_ack = ack
+    return json.dumps({'seq': new_seq, 'ack': new_ack, 'length': length}).encode()
 
 def udp_client(mode):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -10,83 +25,78 @@ def udp_client(mode):
     server_port = 12345
     timeout = 4  # seconds
 
-    max_packets = 10  # Maximum number of packets to send in auto mode
-    retry_limit = 3   # Maximum number of retries for a single packet
+    max_num_packets = 33
+    seq = 1
+    ack = 1
+    length = 10  # Example length
+    ack_received = set()
+    retries = {}
 
-    def send_packet(seq, ack):
-        message = f"{seq},{ack}".encode()
-        client_socket.sendto(message, (server_address, server_port))
-        print(f'{Fore.GREEN}Client sent {message} to server {Style.RESET_ALL}')
-
-    if mode == 'auto':
-        # Initial random seq and ack
-        seq, ack = random.randint(1, 100), random.randint(1, 100)
-
-        for _ in range(max_packets):
-            retry_count = 0
-
-            while retry_count <= retry_limit:
-                send_packet(seq, ack)
-
-                try:
-                    client_socket.settimeout(timeout)
-                    data, server = client_socket.recvfrom(4096)
-                    response = data.decode()
-                    print(f"{Fore.BLUE}Received: {response}")
-
-                    if response.startswith("error"):
-                        retry_count += 1
-                        if retry_count > retry_limit:
-                            print(f"{Fore.RED}Max retries reached for packet {seq}, {ack}. Moving to next packet.{Style.RESET_ALL}")
-                            break
-                    else:
-                        # Update seq and ack for the next packet based on server's response
-                        ack, seq = map(int, response.split(','))  # Note the switch of ack and seq here
-                        ack += 10  # Increase ack by 10 for the next packet
-                        break
-
-                except socket.timeout:
-                    print(f"{Fore.RED}Timeout occurred. Retrying...{Style.RESET_ALL}")
-                    retry_count += 1
-
-            # Prepare new random seq and ack for the next series of attempts if max retries reached
-            if retry_count > retry_limit:
-                seq, ack = random.randint(1, 100), random.randint(1, 100)
-
-    elif mode == 'manual':
+    if mode == 'manual':
         while True:
-            seq, ack = get_user_input()
-            message = f"{seq},{ack}".encode()
-            client_socket.sendto(message, (server_address, server_port))
-            print(f'{Fore.GREEN}Client sent {message} to server {Style.RESET_ALL}')
-
             try:
+                inp = list(map(int, input("Enter seq, ack comma separated: ").split(',')))
+                seq = inp[0]
+                ack = inp[1]
+                message = json.dumps({'seq': seq, 'ack': ack, 'length': length}).encode()
+                client_socket.sendto(message, (server_address, server_port))
+                print(f'{Fore.GREEN}Client sent {message} to server {Style.RESET_ALL}')
+
                 client_socket.settimeout(timeout)
                 data, server = client_socket.recvfrom(4096)
-                response = data.decode()
-                print(f"{Fore.BLUE}Received: {response}")
-
-                if response.startswith("error"):
-                    retry = input("Error occurred. Do you want to retry? (y/n): ").strip().lower()
-                    if retry != 'y':
-                        break
+                response = json.loads(data.decode())
+                print(f"{Fore.BLUE}Received: {data.decode()}")
 
             except socket.timeout:
-                print(f"{Fore.RED}Timeout occurred. Do you want to retry? (y/n): {Style.RESET_ALL}")
-                retry = input().strip().lower()
-                if retry != 'y':
+                print(f"{Fore.RED}Timeout occurred. {Style.RESET_ALL}")
+                user_choice = input("Do you want to retry? (yes/no): ").lower()
+                if user_choice != 'yes':
                     break
 
             except ValueError:
                 print(f"{Fore.RED}Invalid input format. {Style.RESET_ALL}")
+
+    else:  # auto mode
+        while seq <= max_num_packets:
+            try:
+                delayRandomTime()
+                message = json.dumps({'seq': seq, 'ack': ack, 'length': length}).encode()
+                client_socket.sendto(message, (server_address, server_port))
+                print(f'{Fore.GREEN}Client sent {message} to server {Style.RESET_ALL}')
+
+                client_socket.settimeout(timeout)
+                data, server = client_socket.recvfrom(4096)
+                response = json.loads(data.decode())
+                if response['ack'] not in ack_received:
+                    ack_received.add(response['ack'])
+                    print(f"{Fore.BLUE}Received: {data.decode()}")
+                    seq += 1
+                else:
+                    print(f"{Fore.YELLOW}Duplicate ACK detected for SEQ {response['seq']} {Style.RESET_ALL}")
+
+            except socket.timeout:
+                print(f"{Fore.RED}Timeout, resending: {message.decode()}")
+                seq = json.loads(message.decode())['seq']
+                if seq in retries:
+                    retries[seq] += 1
+                else:
+                    retries[seq] = 0
+                delayRandomTime()
+                client_socket.sendto(message, (server_address, server_port))
+                print(f'{Fore.GREEN}Client sent {message} to server')
+
+            except ValueError:
+                print(f"{Fore.RED}Invalid input format. Please enter the correct format (seq, ack).")
+
+            if seq > max_num_packets:
+                print(f"{Fore.GREEN}All packets sent. Closing connection.")
                 break
 
     client_socket.close()
 
-def get_user_input():
-    seq = input("Enter seq number: ")
-    ack = input("Enter ack number: ")
-    return seq, ack
+
+
+
 
 if __name__ == "__main__":
     mode = input("Enter mode (auto/manual): ")
