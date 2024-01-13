@@ -39,7 +39,7 @@ class CommunicationVisualizer(tk.Tk):
             mid_y = y0
             self.canvas.create_line(x0, y0, mid_x, mid_y, fill=color)
             self._draw_red_cross(mid_x, mid_y)
-            self.canvas.create_text((x0 + x1) / 2, y0 - 10, text=f"Seq: {seq}, Ack: {ack}, Length: {length}",
+            self.canvas.create_text((x0 + x1) / 2, y0 - 10, text=f"",#Seq: {seq}, Ack: {ack}, Length: {length}
                                     fill=color)
 
         elif status == "timeout":

@@ -57,7 +57,7 @@ def udp_server(mode,app = None):
             if response:
                 delayRandomTime()
                 server_socket.sendto(response, address)
-                print(f"{Fore.GREEN} {response} package sent to {address}")
+                print(f"{Fore.GREEN}Server sent  {response} to {address}")
                 if(app is not None):
                     app.add_event("host", "client", json.loads(response)['seq'] ,json.loads(response)['ack'], json.loads(response)['length'], "normal")
 

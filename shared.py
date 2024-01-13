@@ -3,7 +3,7 @@ from time import sleep
 import tkinter as tk
 from tkinter import ttk
 
-mode = 'manual'  # auto or manual
+mode = 'auto'  # auto or manual
 
 
 def delayRandomTime():
